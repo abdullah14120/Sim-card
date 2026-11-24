@@ -49,22 +49,31 @@ object RootShell {
                     while (errReader.readLine().also { line = it } != null) {
                         output.append(line).append("\n")
                     }
-                } catch (_: Exception) {
+                } catch (_: Throwable) {
                 }
             }
             readThread.start()
 
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-            if (!finished) {
+            val waitThread = Thread {
+                try {
+                    process.waitFor()
+                } catch (_: Throwable) {
+                }
+            }
+            waitThread.start()
+            waitThread.join(timeoutSeconds * 1000L)
+
+            if (waitThread.isAlive) {
                 process.destroy()
+                waitThread.interrupt()
             }
             readThread.join(1000)
-        } catch (e: Exception) {
-            return "ERROR: ${e.message}"
+        } catch (t: Throwable) {
+            return "ERROR: ${t.message}"
         } finally {
             try {
                 process?.destroy()
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
             }
         }
         return output.toString().trim()
